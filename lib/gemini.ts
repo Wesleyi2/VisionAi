@@ -1,0 +1,118 @@
+import * as FileSystem from "expo-file-system/legacy";
+
+const GEMINI_KEY = process.env.EXPO_PUBLIC_GEMINI_KEY;
+
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`;
+
+export const PROMPTS = {
+  academic: `
+Act as a university professor.
+
+Looking at this image, provide:
+
+- Objects
+- Educational context
+- Activities
+- One constructive recommendation
+
+Respond ONLY with valid JSON:
+
+{
+  "objects": [],
+  "context": "",
+  "activities": "",
+  "recommendations": ""
+}
+`,
+
+  safety: `
+Act as a workplace safety inspector.
+
+Looking at this image, identify:
+
+- Objects
+- Safety hazards (or state that none are visible)
+- Activities
+- One safety recommendation
+
+Respond ONLY with valid JSON:
+
+{
+  "objects": [],
+  "context": "",
+  "activities": "",
+  "recommendations": ""
+}
+`,
+
+  inventory: `
+Act as an asset management clerk.
+
+Looking at this image, identify:
+
+- Every visible physical asset
+- Context
+- Activities
+- One inventory recommendation
+
+Respond ONLY with valid JSON:
+
+{
+  "objects": [],
+  "context": "",
+  "activities": "",
+  "recommendations": ""
+}
+`,
+};
+
+export async function imageToBase64(uri: string): Promise<string> {
+  const base64 = await FileSystem.readAsStringAsync(uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  return base64;
+}
+
+export async function analyzeImage(
+  base64Image: string,
+  prompt: string = PROMPTS.academic,
+) {
+  const response = await fetch(GEMINI_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [
+            {
+              text: prompt,
+            },
+            {
+              inline_data: {
+                mime_type: "image/jpeg",
+                data: base64Image,
+              },
+            },
+          ],
+        },
+      ],
+    }),
+  });
+
+  const json = await response.json();
+
+  console.log("HTTP Status:", response.status);
+  console.log("Gemini JSON:", JSON.stringify(json, null, 2));
+
+  if (!response.ok) {
+    throw new Error(json.error?.message || "Gemini API request failed.");
+  }
+
+  return json;
+}
+
+export { GEMINI_KEY };
+
